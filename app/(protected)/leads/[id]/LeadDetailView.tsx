@@ -366,6 +366,19 @@ export default function LeadDetailView({ lead: initialLead }: { lead: Serialized
             </p>
           )
         )}
+        {pitchIdeas && pitchIdeas.objections && pitchIdeas.objections.length > 0 && (
+          <div className="mt-4 border-t border-slate-100 pt-3">
+            <p className="mb-2 text-xs font-medium text-slate-500">Likely Objections</p>
+            <div className="space-y-2">
+              {pitchIdeas.objections.map((o, i) => (
+                <div key={i} className="rounded-lg bg-slate-50 p-2.5">
+                  <p className="text-xs italic text-slate-500">&quot;{o.objection}&quot;</p>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-700">{o.response}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </Card>
 
       <Card className="p-5">

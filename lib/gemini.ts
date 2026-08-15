@@ -15,7 +15,9 @@ export type PitchIdea = {
   category: "website" | "web_app" | "ai_workflow" | "other";
 };
 
-export type PitchIdeas = { ideas: PitchIdea[] };
+export type Objection = { objection: string; response: string };
+
+export type PitchIdeas = { ideas: PitchIdea[]; objections: Objection[] };
 
 export type OpportunitySource = { url: string; title: string };
 export type Opportunities = { summary: string; sources: OpportunitySource[] };
@@ -35,8 +37,19 @@ const PITCH_SCHEMA = {
         required: ["title", "pitch", "category"],
       },
     },
+    objections: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          objection: { type: "string" },
+          response: { type: "string" },
+        },
+        required: ["objection", "response"],
+      },
+    },
   },
-  required: ["ideas"],
+  required: ["ideas", "objections"],
 };
 
 function describeLead(lead: SerializedLead): string {
@@ -63,7 +76,9 @@ export async function generatePitchIdeas(lead: SerializedLead): Promise<PitchIde
 Here is what we know about a lead, gathered from Google Maps (no other research has been done yet):
 ${describeLead(lead)}
 
-Based only on this information, come up with 4 to 6 concrete, specific pitch ideas our sales rep could use when calling this business. Each idea should be grounded in what we actually know (e.g. a business with no website needs a different pitch than one with only Instagram). Avoid generic advice - make it specific to this business's category and situation. Categorize each idea as one of: website, web_app, ai_workflow, other.`;
+Based only on this information, come up with 4 to 6 concrete, specific pitch ideas our sales rep could use when calling this business. Each idea should be grounded in what we actually know (e.g. a business with no website needs a different pitch than one with only Instagram). Avoid generic advice - make it specific to this business's category and situation. Categorize each idea as one of: website, web_app, ai_workflow, other.
+
+Also anticipate 2 to 4 objections our sales rep is likely to hear on this specific call - tailored to this business's size, category, and situation (e.g. "we're too small for that," "can't afford it," "WhatsApp is enough, we don't need a website"). For each, write a brief, confident response she could actually say out loud - not scripted or pushy, just a natural comeback grounded in what we know about this business.`;
 
   const interaction = await getClient().interactions.create({
     model: MODEL,
