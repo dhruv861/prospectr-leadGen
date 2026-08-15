@@ -54,3 +54,11 @@ Runs a real, cheap Apify search (5 places) end-to-end and asserts the cooldown c
 Configured for Vercel — zero-config Next.js support, no adapter needed. Prisma's `binaryTargets` (`native` + `rhel-openssl-3.0.x`) already match Vercel's Lambda-based runtime. Deployment itself (project creation, env var setup) is left to whoever owns the target Vercel/Neon accounts.
 
 Note: Vercel's free Hobby plan is restricted to personal/non-commercial use per its Terms of Service — fine for this project as currently scoped, but revisit (Vercel Pro, or move back to Netlify's free tier) if it's ever put to commercial use.
+
+**Migrations run automatically** — the `build` script (`scripts/vercel-build.js`) runs `prisma migrate deploy` before `next build`, but only when `VERCEL_ENV === "production"`, so a preview/branch deploy never touches the real database even if it shares the same `DATABASE_URL`. Locally, `VERCEL_ENV` is unset, so `npm run build` behaves exactly as before (just `next build`).
+
+**Seeding is deliberately manual**, not part of the build — `npm run seed` upserts by email/Apify-token, so it's safe to re-run, but auto-running it on every deploy would silently overwrite any user/account edits made directly in the database since the last run. Run it once after the first deploy, and again only when adding a new teammate or Apify token:
+
+```bash
+DATABASE_URL="<prod pooled url>" DIRECT_URL="<prod direct url>" ADMIN_NAME="..." ADMIN_EMAIL="..." ADMIN_PASSWORD="..." PARTNER_NAME="..." PARTNER_EMAIL="..." PARTNER_PASSWORD="..." APIFY_TOKEN_1="..." npm run seed
+```
