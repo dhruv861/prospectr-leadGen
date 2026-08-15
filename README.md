@@ -19,7 +19,7 @@ Built as a two-user internal tool (admin + partner), designed to run entirely on
 - **Next.js** (App Router) + **TypeScript**, Route Handlers as the API layer — no separate backend
 - **PostgreSQL** via **Neon** (serverless, free tier) + **Prisma** ORM
 - **NextAuth v5** (Auth.js), credentials-based, JWT sessions — no OAuth, no self-registration
-- **Tailwind CSS v4** + **lucide-react**, hosted on **Netlify** (free tier permits commercial use, unlike Vercel Hobby)
+- **Tailwind CSS v4** + **lucide-react**, hosted on **Vercel** (free Hobby tier — personal/non-commercial use only; its Fluid Compute default allows functions to run up to 300s, needed for the web-search-grounded AI opportunity finder)
 - **Apify** (`compass/crawler-google-places` actor) for the underlying Google Maps data
 
 ## Getting started
@@ -51,4 +51,6 @@ Runs a real, cheap Apify search (5 places) end-to-end and asserts the cooldown c
 
 ## Deployment
 
-Configured for Netlify (`netlify.toml`, `@netlify/plugin-nextjs`, Prisma `binaryTargets` for its Lambda-based runtime). Deployment itself (site creation, env var setup) is left to whoever owns the target Netlify/Neon accounts.
+Configured for Vercel — zero-config Next.js support, no adapter needed. Prisma's `binaryTargets` (`native` + `rhel-openssl-3.0.x`) already match Vercel's Lambda-based runtime. Deployment itself (project creation, env var setup) is left to whoever owns the target Vercel/Neon accounts.
+
+Note: Vercel's free Hobby plan is restricted to personal/non-commercial use per its Terms of Service — fine for this project as currently scoped, but revisit (Vercel Pro, or move back to Netlify's free tier) if it's ever put to commercial use.
