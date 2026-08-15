@@ -138,8 +138,17 @@ function nullIfBlank(value: string | null | undefined): string | null {
   return value;
 }
 
+// Google Maps sometimes returns a bare address/shop-unit pin (e.g. "Shop No.
+// 2", "Ground Floor, Fatima Cottage") instead of an actual business listing -
+// these have no category info at all and aren't usable sales leads.
+function hasNoCategoryInfo(item: ApifyPlaceItem): boolean {
+  const hasCategoryName = !!item.categoryName && item.categoryName.trim() !== "";
+  const hasCategories = Array.isArray(item.categories) && item.categories.length > 0;
+  return !hasCategoryName && !hasCategories;
+}
+
 export function mapDatasetItemToLead(item: ApifyPlaceItem, locality: string): LeadUpsertData | null {
-  if (!item.placeId) {
+  if (!item.placeId || hasNoCategoryInfo(item)) {
     return null;
   }
   const { websiteStatus, websiteUrl } = detectWebsiteStatus(item.website);

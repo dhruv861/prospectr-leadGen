@@ -30,6 +30,7 @@ export type ApifyPlaceItem = {
   placeId?: string;
   title?: string;
   categoryName?: string;
+  categories?: string[];
   address?: string;
   phone?: string;
   phoneUnformatted?: string;
