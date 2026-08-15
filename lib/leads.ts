@@ -5,11 +5,20 @@ import type { LeadFilters } from "./validation";
 
 export type SerializedLead = Omit<
   Lead,
-  "lastContactedAt" | "shortlistedAt" | "followUpAt" | "createdAt" | "updatedAt" | "rawData"
+  | "lastContactedAt"
+  | "shortlistedAt"
+  | "followUpAt"
+  | "pitchIdeasGeneratedAt"
+  | "opportunitiesGeneratedAt"
+  | "createdAt"
+  | "updatedAt"
+  | "rawData"
 > & {
   lastContactedAt: string | null;
   shortlistedAt: string | null;
   followUpAt: string | null;
+  pitchIdeasGeneratedAt: string | null;
+  opportunitiesGeneratedAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -22,6 +31,8 @@ export function serializeLead(lead: Lead): SerializedLead {
     lastContactedAt: lead.lastContactedAt ? lead.lastContactedAt.toISOString() : null,
     shortlistedAt: lead.shortlistedAt ? lead.shortlistedAt.toISOString() : null,
     followUpAt: lead.followUpAt ? lead.followUpAt.toISOString() : null,
+    pitchIdeasGeneratedAt: lead.pitchIdeasGeneratedAt ? lead.pitchIdeasGeneratedAt.toISOString() : null,
+    opportunitiesGeneratedAt: lead.opportunitiesGeneratedAt ? lead.opportunitiesGeneratedAt.toISOString() : null,
     createdAt: lead.createdAt.toISOString(),
     updatedAt: lead.updatedAt.toISOString(),
   };

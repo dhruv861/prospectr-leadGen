@@ -42,3 +42,33 @@ export function formatFollowUpLabel(followUpAtIso: string): string {
   if (diffDays <= 7) return `In ${diffDays}d`;
   return formatDate(followUpAtIso);
 }
+
+// Local (browser-timezone) input values for <input type="datetime-local"/date">.
+// Deliberately uses the reader's local clock, not TIME_ZONE, since these feed
+// editable form fields rather than display-only labels.
+export function toLocalInputValue(date: string | null): string {
+  if (!date) return "";
+  const d = new Date(date);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+export function toLocalDateInputValue(date: string | null): string {
+  if (!date) return "";
+  const d = new Date(date);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+// Relative "generated X ago" caption for AI-generated content timestamps.
+export function formatRelativeTime(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const diffMin = Math.round(diffMs / 60000);
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.round(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDays = Math.round(diffHr / 24);
+  if (diffDays < 30) return `${diffDays}d ago`;
+  return formatDate(iso);
+}

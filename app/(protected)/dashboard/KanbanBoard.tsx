@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Phone, MessageCircle, Star, StickyNote, MapPin, ChevronDown, CalendarClock } from "lucide-react";
 import type { SerializedLead } from "@/lib/leads";
@@ -147,14 +148,9 @@ function KanbanCard({
       }`}
     >
       <div className="flex items-start justify-between gap-1">
-        <a
-          href={lead.mapsUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-sm font-medium text-slate-900 hover:text-indigo-600"
-        >
+        <Link href={`/leads/${lead.id}`} className="text-sm font-medium text-slate-900 hover:text-indigo-600">
           {lead.businessName}
-        </a>
+        </Link>
         {lead.shortlistedAt && <Star className="h-3.5 w-3.5 flex-shrink-0 fill-amber-400 text-amber-400" />}
       </div>
       <div className="mt-1 flex items-center gap-1 text-slate-500">
