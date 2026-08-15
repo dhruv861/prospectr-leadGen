@@ -17,9 +17,11 @@ import {
   Search,
   Globe,
   Pickaxe,
+  Building2,
+  Copy,
 } from "lucide-react";
 import type { SerializedLead } from "@/lib/leads";
-import type { PitchIdeas, PitchIdea, Opportunities, ReviewPainPoints } from "@/lib/gemini";
+import type { PitchIdeas, PitchIdea, Opportunities, ReviewPainPoints, CompetitorGaps } from "@/lib/gemini";
 import { toWhatsAppLink } from "@/lib/phone";
 import { formatDateTime, formatRelativeTime, toLocalInputValue, toLocalDateInputValue } from "@/lib/format";
 import {
@@ -51,7 +53,6 @@ const PITCH_CATEGORY_COLOR: Record<PitchIdea["category"], BadgeColor> = {
 export default function LeadDetailView({ lead: initialLead }: { lead: SerializedLead }) {
   const router = useRouter();
   const [lead, setLead] = useState(initialLead);
-  const waLink = toWhatsAppLink(lead.phone);
   const shortlisted = lead.shortlistedAt !== null;
 
   const [statusSaving, setStatusSaving] = useState(false);
@@ -74,6 +75,23 @@ export default function LeadDetailView({ lead: initialLead }: { lead: Serialized
   );
   const [reviewPainPointsGenerating, setReviewPainPointsGenerating] = useState(false);
   const [reviewPainPointsError, setReviewPainPointsError] = useState<string | null>(null);
+
+  const [competitorGaps, setCompetitorGaps] = useState<CompetitorGaps | null>(
+    lead.competitorGaps as CompetitorGaps | null
+  );
+  const [competitorGapsGenerating, setCompetitorGapsGenerating] = useState(false);
+  const [competitorGapsError, setCompetitorGapsError] = useState<string | null>(null);
+
+  const [whatsappOpener, setWhatsappOpener] = useState<string | null>(lead.whatsappOpener);
+  const [whatsappOpenerGenerating, setWhatsappOpenerGenerating] = useState(false);
+  const [whatsappOpenerError, setWhatsappOpenerError] = useState<string | null>(null);
+  const [whatsappCopied, setWhatsappCopied] = useState(false);
+
+  // toWhatsAppLink returns null for a missing/invalid phone regardless of the
+  // message arg, so this doubles as the "does this lead even have WhatsApp"
+  // gate for the section below, and as the pre-filled link once an opener
+  // has been generated.
+  const waLink = toWhatsAppLink(lead.phone, undefined, whatsappOpener ?? undefined);
 
   async function patchLead(body: Record<string, unknown>) {
     const res = await fetch(`/api/leads/${lead.id}`, {
@@ -165,6 +183,49 @@ export default function LeadDetailView({ lead: initialLead }: { lead: Serialized
       setReviewPainPointsError("Couldn't mine reviews for this business. Try again in a moment.");
     } finally {
       setReviewPainPointsGenerating(false);
+    }
+  }
+
+  async function handleMineCompetitorGaps() {
+    setCompetitorGapsGenerating(true);
+    setCompetitorGapsError(null);
+    try {
+      const res = await fetch(`/api/leads/${lead.id}/competitor-comparison`, { method: "POST" });
+      if (!res.ok) throw new Error("request failed");
+      const data = await res.json();
+      setLead(data.lead);
+      setCompetitorGaps(data.lead.competitorGaps);
+    } catch {
+      setCompetitorGapsError("Couldn't research competitors for this business. Try again in a moment.");
+    } finally {
+      setCompetitorGapsGenerating(false);
+    }
+  }
+
+  async function handleGenerateWhatsAppOpener() {
+    setWhatsappOpenerGenerating(true);
+    setWhatsappOpenerError(null);
+    try {
+      const res = await fetch(`/api/leads/${lead.id}/whatsapp-opener`, { method: "POST" });
+      if (!res.ok) throw new Error("request failed");
+      const data = await res.json();
+      setLead(data.lead);
+      setWhatsappOpener(data.lead.whatsappOpener);
+    } catch {
+      setWhatsappOpenerError("Couldn't generate an opener. Try again in a moment.");
+    } finally {
+      setWhatsappOpenerGenerating(false);
+    }
+  }
+
+  async function handleCopyOpener() {
+    if (!whatsappOpener) return;
+    try {
+      await navigator.clipboard.writeText(whatsappOpener);
+      setWhatsappCopied(true);
+      setTimeout(() => setWhatsappCopied(false), 1500);
+    } catch {
+      // clipboard permissions can fail in some contexts - text is still visible to copy manually
     }
   }
 
@@ -278,6 +339,62 @@ export default function LeadDetailView({ lead: initialLead }: { lead: Serialized
           </Field>
           <Field label="Last updated">{formatDateTime(lead.updatedAt)}</Field>
         </div>
+        {waLink && (
+          <div className="mt-4 border-t border-slate-100 pt-3">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <MessageCircle className="h-4 w-4 text-emerald-500" />
+                <p className="text-xs font-medium text-slate-500">WhatsApp Opener</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {lead.whatsappOpenerGeneratedAt && (
+                  <span className="text-xs text-slate-400">
+                    generated {formatRelativeTime(lead.whatsappOpenerGeneratedAt)}
+                  </span>
+                )}
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleGenerateWhatsAppOpener}
+                  disabled={whatsappOpenerGenerating}
+                >
+                  {whatsappOpenerGenerating ? "Writing..." : whatsappOpener ? "Regenerate" : "Draft Opener"}
+                </Button>
+              </div>
+            </div>
+            {whatsappOpenerError && <p className="mb-2 text-xs text-red-600">{whatsappOpenerError}</p>}
+            {whatsappOpener ? (
+              <div className="rounded-lg bg-slate-50 p-2.5">
+                <p className="text-xs leading-relaxed text-slate-700">{whatsappOpener}</p>
+                <div className="mt-2 flex items-center gap-3">
+                  <a
+                    href={waLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:underline"
+                  >
+                    <MessageCircle className="h-3.5 w-3.5" /> Open in WhatsApp
+                  </a>
+                  <button
+                    type="button"
+                    onClick={handleCopyOpener}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-700"
+                  >
+                    <Copy className="h-3.5 w-3.5" /> {whatsappCopied ? "Copied" : "Copy"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              !whatsappOpenerGenerating && (
+                <p className="text-xs text-slate-400">
+                  Draft a ready-to-send WhatsApp opening message from this lead&apos;s details — no web search, quick
+                  and cheap.
+                </p>
+              )
+            )}
+          </div>
+        )}
       </Card>
 
       <Card className="p-5">
@@ -522,6 +639,89 @@ export default function LeadDetailView({ lead: initialLead }: { lead: Serialized
             <p className="text-sm text-slate-400">
               Search this business&apos;s real customer reviews for recurring complaints and turn each one into a
               specific, evidence-backed pitch — more concrete than Find Opportunities above.
+            </p>
+          )
+        )}
+      </Card>
+
+      <Card className="p-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-indigo-500" />
+            <h2 className="text-sm font-semibold text-slate-700">Competitor Comparison</h2>
+          </div>
+          <div className="flex items-center gap-2">
+            {lead.competitorGapsGeneratedAt && (
+              <span className="text-xs text-slate-400">
+                generated {formatRelativeTime(lead.competitorGapsGeneratedAt)}
+              </span>
+            )}
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={handleMineCompetitorGaps}
+              disabled={competitorGapsGenerating}
+            >
+              {competitorGapsGenerating ? "Comparing..." : competitorGaps ? "Regenerate" : "Compare Competitors"}
+            </Button>
+          </div>
+        </div>
+        {competitorGapsGenerating && (
+          <p className="mb-3 text-xs text-slate-400">
+            Searching the web for nearby competitors and comparing their online presence — this can take a minute or
+            two.
+          </p>
+        )}
+        {competitorGapsError && <p className="mb-3 text-xs text-red-600">{competitorGapsError}</p>}
+        {competitorGaps ? (
+          competitorGaps.gaps.length > 0 ? (
+            <div>
+              <div className="grid grid-cols-1 gap-3">
+                {competitorGaps.gaps.map((gap, i) => (
+                  <div key={i} className="rounded-lg border border-slate-200 p-3">
+                    <div className="mb-1.5 flex items-start justify-between gap-2">
+                      <p className="text-sm font-medium text-slate-900">{gap.competitor}</p>
+                      <Badge color={PITCH_CATEGORY_COLOR[gap.category]} className="flex-shrink-0">
+                        {PITCH_CATEGORY_LABEL[gap.category]}
+                      </Badge>
+                    </div>
+                    <p className="mb-1.5 text-xs italic leading-relaxed text-slate-500">{gap.advantage}</p>
+                    <p className="text-xs leading-relaxed text-slate-600">{gap.pitch}</p>
+                  </div>
+                ))}
+              </div>
+              {competitorGaps.sources.length > 0 && (
+                <div className="mt-4 border-t border-slate-100 pt-3">
+                  <p className="mb-2 text-xs font-medium text-slate-500">Sources</p>
+                  <ul className="space-y-1">
+                    {competitorGaps.sources.map((source) => (
+                      <li key={source.url}>
+                        <a
+                          href={source.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline"
+                        >
+                          <Globe className="h-3 w-3 flex-shrink-0" />
+                          <span className="truncate">{source.title}</span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400">
+              Couldn&apos;t find enough genuine nearby competitors to identify concrete gaps.
+            </p>
+          )
+        ) : (
+          !competitorGapsGenerating && (
+            <p className="text-sm text-slate-400">
+              Have AI research 2-3 nearby competitors and surface what they offer online that this business
+              doesn&apos;t — a sellable gap in their words.
             </p>
           )
         )}

@@ -229,3 +229,113 @@ Based only on the above, identify 3 to 6 concrete, recurring pain points - do no
 
   return { painPoints: parsed.painPoints, sources: Array.from(sources.values()) };
 }
+
+export type CompetitorGapSource = { url: string; title: string };
+
+export type CompetitorGap = {
+  competitor: string;
+  advantage: string;
+  pitch: string;
+  category: "website" | "web_app" | "ai_workflow" | "other";
+};
+
+export type CompetitorGaps = { gaps: CompetitorGap[]; sources: CompetitorGapSource[] };
+
+const COMPETITOR_GAP_SCHEMA = {
+  type: "object",
+  properties: {
+    gaps: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          competitor: { type: "string" },
+          advantage: { type: "string" },
+          pitch: { type: "string" },
+          category: { type: "string", enum: ["website", "web_app", "ai_workflow", "other"] },
+        },
+        required: ["competitor", "advantage", "pitch", "category"],
+      },
+    },
+  },
+  required: ["gaps"],
+};
+
+// Same two-call shape as mineReviewPainPoints, for the same reason: a
+// search-grounded call reliably attaches citations only when free to answer
+// in natural prose, not when forced into a rigid schema.
+export async function mineCompetitorGaps(lead: SerializedLead): Promise<CompetitorGaps> {
+  const researchPrompt = `You are a sales researcher at a small IT agency that builds websites, web apps, and AI-powered workflow automation for local businesses.
+
+Research this business's local competitors using web search:
+Business name: ${lead.businessName}
+Category: ${lead.category ?? "unknown"}
+Locality: ${lead.locality}
+Address: ${lead.address}
+
+Find 2 to 3 other businesses in the same category, near the same locality, that plausibly compete with this one for customers (search Google Maps, Justdial, Zomato/Swiggy, Instagram, or their own websites - whatever search turns up). For each competitor, describe what you can find about their online presence: do they have a website, an Instagram page, online ordering/booking, a visible menu or catalog, customer reviews, and so on. Then note specifically what each one offers online that ${lead.businessName} does not appear to have. Write this up in plain prose - name each competitor, what you found about their online presence, and what gap that reveals for this lead. If you can't find at least 2 genuine nearby competitors, say so plainly rather than inventing them.`;
+
+  const research = await getClient().interactions.create({
+    model: MODEL,
+    input: researchPrompt,
+    tools: [{ type: "google_search" }],
+  });
+
+  if (!research.output_text) {
+    throw new Error("Gemini returned no output for competitor research");
+  }
+
+  const sources = new Map<string, CompetitorGapSource>();
+  for (const step of research.steps) {
+    if (step.type !== "model_output" || !step.content) continue;
+    for (const block of step.content) {
+      if (block.type !== "text" || !block.annotations) continue;
+      for (const annotation of block.annotations) {
+        if (annotation.type === "url_citation" && annotation.url) {
+          sources.set(annotation.url, { url: annotation.url, title: annotation.title ?? annotation.url });
+        }
+      }
+    }
+  }
+
+  const structurePrompt = `Here is some research comparing ${lead.businessName} to its nearby competitors:
+
+${research.output_text}
+
+Based only on the above, identify 2 to 3 concrete competitor gaps - do not invent or generalize beyond what's stated. Each gap should name the specific competitor, state the one thing they offer online that ${lead.businessName} doesn't, and propose how to use that as a pitch angle (e.g. "Competitor X has an online ordering menu, you don't - reach the same lunch-rush customers without losing them to a listed competitor"). Categorize each pitch as one of: website, web_app, ai_workflow, other. If the research above didn't find genuine nearby competitors, return an empty list rather than inventing any.`;
+
+  const structured = await getClient().interactions.create({
+    model: MODEL,
+    input: structurePrompt,
+    response_format: { type: "text", mime_type: "application/json", schema: COMPETITOR_GAP_SCHEMA },
+  });
+
+  if (!structured.output_text) {
+    throw new Error("Gemini returned no output for competitor gap structuring");
+  }
+  const parsed = JSON.parse(structured.output_text) as { gaps: CompetitorGap[] };
+  if (!Array.isArray(parsed.gaps)) {
+    throw new Error("Gemini returned malformed competitor gaps");
+  }
+
+  return { gaps: parsed.gaps, sources: Array.from(sources.values()) };
+}
+
+export async function generateWhatsAppOpener(lead: SerializedLead): Promise<string> {
+  const prompt = `You are a sales rep at a small IT agency that builds websites, web apps, and AI-powered workflow automation for local businesses. You're about to send a first WhatsApp message to a lead you have not spoken to before.
+
+Here is what we know about this lead, gathered from Google Maps:
+${describeLead(lead)}
+
+Write a short WhatsApp opening message - 2 to 3 sentences, ready to send as-is. It should sound like a real person texting, not a template: warm, specific to this business, and low-pressure - the goal is to start a conversation, not close a sale in one message. Reference something concrete about the business (its category, locality, or website situation) so it doesn't read as mass-blasted. Do not use placeholders like [Name] - write it as a finished message. No markdown, no emojis, no greeting like "Dear" - just plain conversational text a sales rep would actually type into WhatsApp.`;
+
+  const interaction = await getClient().interactions.create({
+    model: MODEL,
+    input: prompt,
+  });
+
+  if (!interaction.output_text) {
+    throw new Error("Gemini returned no output for WhatsApp opener");
+  }
+  return interaction.output_text.trim();
+}

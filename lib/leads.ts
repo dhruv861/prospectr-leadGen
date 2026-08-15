@@ -11,6 +11,8 @@ export type SerializedLead = Omit<
   | "pitchIdeasGeneratedAt"
   | "opportunitiesGeneratedAt"
   | "reviewPainPointsGeneratedAt"
+  | "competitorGapsGeneratedAt"
+  | "whatsappOpenerGeneratedAt"
   | "createdAt"
   | "updatedAt"
   | "rawData"
@@ -21,6 +23,8 @@ export type SerializedLead = Omit<
   pitchIdeasGeneratedAt: string | null;
   opportunitiesGeneratedAt: string | null;
   reviewPainPointsGeneratedAt: string | null;
+  competitorGapsGeneratedAt: string | null;
+  whatsappOpenerGeneratedAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -37,6 +41,12 @@ export function serializeLead(lead: Lead): SerializedLead {
     opportunitiesGeneratedAt: lead.opportunitiesGeneratedAt ? lead.opportunitiesGeneratedAt.toISOString() : null,
     reviewPainPointsGeneratedAt: lead.reviewPainPointsGeneratedAt
       ? lead.reviewPainPointsGeneratedAt.toISOString()
+      : null,
+    competitorGapsGeneratedAt: lead.competitorGapsGeneratedAt
+      ? lead.competitorGapsGeneratedAt.toISOString()
+      : null,
+    whatsappOpenerGeneratedAt: lead.whatsappOpenerGeneratedAt
+      ? lead.whatsappOpenerGeneratedAt.toISOString()
       : null,
     createdAt: lead.createdAt.toISOString(),
     updatedAt: lead.updatedAt.toISOString(),
