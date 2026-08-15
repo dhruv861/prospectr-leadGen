@@ -16,9 +16,10 @@ import {
   Sparkles,
   Search,
   Globe,
+  Pickaxe,
 } from "lucide-react";
 import type { SerializedLead } from "@/lib/leads";
-import type { PitchIdeas, PitchIdea, Opportunities } from "@/lib/gemini";
+import type { PitchIdeas, PitchIdea, Opportunities, ReviewPainPoints } from "@/lib/gemini";
 import { toWhatsAppLink } from "@/lib/phone";
 import { formatDateTime, formatRelativeTime, toLocalInputValue, toLocalDateInputValue } from "@/lib/format";
 import {
@@ -67,6 +68,12 @@ export default function LeadDetailView({ lead: initialLead }: { lead: Serialized
   const [opportunities, setOpportunities] = useState<Opportunities | null>(lead.opportunities as Opportunities | null);
   const [opportunitiesGenerating, setOpportunitiesGenerating] = useState(false);
   const [opportunitiesError, setOpportunitiesError] = useState<string | null>(null);
+
+  const [reviewPainPoints, setReviewPainPoints] = useState<ReviewPainPoints | null>(
+    lead.reviewPainPoints as ReviewPainPoints | null
+  );
+  const [reviewPainPointsGenerating, setReviewPainPointsGenerating] = useState(false);
+  const [reviewPainPointsError, setReviewPainPointsError] = useState<string | null>(null);
 
   async function patchLead(body: Record<string, unknown>) {
     const res = await fetch(`/api/leads/${lead.id}`, {
@@ -142,6 +149,22 @@ export default function LeadDetailView({ lead: initialLead }: { lead: Serialized
       setOpportunitiesError("Couldn't research this business. Try again in a moment.");
     } finally {
       setOpportunitiesGenerating(false);
+    }
+  }
+
+  async function handleMineReviewPainPoints() {
+    setReviewPainPointsGenerating(true);
+    setReviewPainPointsError(null);
+    try {
+      const res = await fetch(`/api/leads/${lead.id}/review-pain-points`, { method: "POST" });
+      if (!res.ok) throw new Error("request failed");
+      const data = await res.json();
+      setLead(data.lead);
+      setReviewPainPoints(data.lead.reviewPainPoints);
+    } catch {
+      setReviewPainPointsError("Couldn't mine reviews for this business. Try again in a moment.");
+    } finally {
+      setReviewPainPointsGenerating(false);
     }
   }
 
@@ -403,6 +426,89 @@ export default function LeadDetailView({ lead: initialLead }: { lead: Serialized
             <p className="text-sm text-slate-400">
               Have AI research this business live on the web and list concrete gaps we could pitch a website, web app,
               or AI workflow to solve.
+            </p>
+          )
+        )}
+      </Card>
+
+      <Card className="p-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Pickaxe className="h-4 w-4 text-indigo-500" />
+            <h2 className="text-sm font-semibold text-slate-700">Review Pain Points</h2>
+          </div>
+          <div className="flex items-center gap-2">
+            {lead.reviewPainPointsGeneratedAt && (
+              <span className="text-xs text-slate-400">
+                generated {formatRelativeTime(lead.reviewPainPointsGeneratedAt)}
+              </span>
+            )}
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={handleMineReviewPainPoints}
+              disabled={reviewPainPointsGenerating}
+            >
+              {reviewPainPointsGenerating ? "Mining reviews..." : reviewPainPoints ? "Regenerate" : "Mine Reviews"}
+            </Button>
+          </div>
+        </div>
+        {reviewPainPointsGenerating && (
+          <p className="mb-3 text-xs text-slate-400">
+            Reading customer reviews on Google Maps, Justdial, Zomato, and wherever else search finds them — this can
+            take a minute or two.
+          </p>
+        )}
+        {reviewPainPointsError && <p className="mb-3 text-xs text-red-600">{reviewPainPointsError}</p>}
+        {reviewPainPoints ? (
+          reviewPainPoints.painPoints.length > 0 ? (
+            <div>
+              <div className="grid grid-cols-1 gap-3">
+                {reviewPainPoints.painPoints.map((pp, i) => (
+                  <div key={i} className="rounded-lg border border-slate-200 p-3">
+                    <div className="mb-1.5 flex items-start justify-between gap-2">
+                      <p className="text-sm font-medium text-slate-900">{pp.complaint}</p>
+                      <Badge color={PITCH_CATEGORY_COLOR[pp.category]} className="flex-shrink-0">
+                        {PITCH_CATEGORY_LABEL[pp.category]}
+                      </Badge>
+                    </div>
+                    <p className="mb-1.5 text-xs italic leading-relaxed text-slate-500">{pp.evidence}</p>
+                    <p className="text-xs leading-relaxed text-slate-600">{pp.fix}</p>
+                  </div>
+                ))}
+              </div>
+              {reviewPainPoints.sources.length > 0 && (
+                <div className="mt-4 border-t border-slate-100 pt-3">
+                  <p className="mb-2 text-xs font-medium text-slate-500">Sources</p>
+                  <ul className="space-y-1">
+                    {reviewPainPoints.sources.map((source) => (
+                      <li key={source.url}>
+                        <a
+                          href={source.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline"
+                        >
+                          <Globe className="h-3 w-3 flex-shrink-0" />
+                          <span className="truncate">{source.title}</span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400">
+              Couldn&apos;t find enough genuine customer reviews for this business to identify recurring complaints.
+            </p>
+          )
+        ) : (
+          !reviewPainPointsGenerating && (
+            <p className="text-sm text-slate-400">
+              Search this business&apos;s real customer reviews for recurring complaints and turn each one into a
+              specific, evidence-backed pitch — more concrete than Find Opportunities above.
             </p>
           )
         )}

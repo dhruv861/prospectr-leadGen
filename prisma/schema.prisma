@@ -112,6 +112,8 @@ model Lead {
   pitchIdeasGeneratedAt   DateTime? @map("pitch_ideas_generated_at")
   opportunities            Json?     @map("opportunities")
   opportunitiesGeneratedAt DateTime? @map("opportunities_generated_at")
+  reviewPainPoints            Json?     @map("review_pain_points")
+  reviewPainPointsGeneratedAt DateTime? @map("review_pain_points_generated_at")
   rawData         Json          @map("raw_data")
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")

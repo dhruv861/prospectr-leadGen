@@ -10,6 +10,7 @@ export type SerializedLead = Omit<
   | "followUpAt"
   | "pitchIdeasGeneratedAt"
   | "opportunitiesGeneratedAt"
+  | "reviewPainPointsGeneratedAt"
   | "createdAt"
   | "updatedAt"
   | "rawData"
@@ -19,6 +20,7 @@ export type SerializedLead = Omit<
   followUpAt: string | null;
   pitchIdeasGeneratedAt: string | null;
   opportunitiesGeneratedAt: string | null;
+  reviewPainPointsGeneratedAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -33,6 +35,9 @@ export function serializeLead(lead: Lead): SerializedLead {
     followUpAt: lead.followUpAt ? lead.followUpAt.toISOString() : null,
     pitchIdeasGeneratedAt: lead.pitchIdeasGeneratedAt ? lead.pitchIdeasGeneratedAt.toISOString() : null,
     opportunitiesGeneratedAt: lead.opportunitiesGeneratedAt ? lead.opportunitiesGeneratedAt.toISOString() : null,
+    reviewPainPointsGeneratedAt: lead.reviewPainPointsGeneratedAt
+      ? lead.reviewPainPointsGeneratedAt.toISOString()
+      : null,
     createdAt: lead.createdAt.toISOString(),
     updatedAt: lead.updatedAt.toISOString(),
   };

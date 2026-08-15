@@ -119,3 +119,98 @@ Format your answer as a plain-text numbered list - no markdown, no asterisks, no
 
   return { summary: interaction.output_text, sources: Array.from(sources.values()) };
 }
+
+export type ReviewPainPointSource = { url: string; title: string };
+
+export type ReviewPainPoint = {
+  complaint: string;
+  evidence: string;
+  fix: string;
+  category: "website" | "web_app" | "ai_workflow" | "other";
+};
+
+export type ReviewPainPoints = { painPoints: ReviewPainPoint[]; sources: ReviewPainPointSource[] };
+
+const REVIEW_PAIN_POINT_SCHEMA = {
+  type: "object",
+  properties: {
+    painPoints: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          complaint: { type: "string" },
+          evidence: { type: "string" },
+          fix: { type: "string" },
+          category: { type: "string", enum: ["website", "web_app", "ai_workflow", "other"] },
+        },
+        required: ["complaint", "evidence", "fix", "category"],
+      },
+    },
+  },
+  required: ["painPoints"],
+};
+
+// Two calls, not one: a search-grounded call can't also force a JSON schema
+// (same constraint findOpportunities works around), and testing showed that
+// asking the model to write directly in a rigid labeled-field format
+// suppresses citation attachment even when it's clearly reading real reviews.
+// So step 1 does natural-prose research (reliably cites sources) and step 2
+// structures that text into typed pain points with no search tool involved.
+export async function mineReviewPainPoints(lead: SerializedLead): Promise<ReviewPainPoints> {
+  const researchPrompt = `You are a sales researcher at a small IT agency that builds websites, web apps, and AI-powered workflow automation for local businesses.
+
+Research this business's actual customer reviews using web search:
+Business name: ${lead.businessName}
+Category: ${lead.category ?? "unknown"}
+Locality: ${lead.locality}
+Address: ${lead.address}
+Google rating: ${lead.rating != null ? `${lead.rating} (${lead.reviewCount ?? 0} reviews)` : "no rating data"}
+
+Search for and read this business's real customer reviews - on Google Maps, and wherever else search turns up (Justdial, Zomato, Swiggy, or other platforms commonly used for local businesses in India). Focus on recurring complaints - the same problem mentioned by multiple reviewers, not a single one-off gripe. Summarize what you find in a few sentences of plain prose, grounded specifically in what reviewers actually wrote (mention roughly how many reviews, which platform, and how recent, where you can tell). If you cannot find genuine customer reviews for this business, say so plainly.`;
+
+  const research = await getClient().interactions.create({
+    model: MODEL,
+    input: researchPrompt,
+    tools: [{ type: "google_search" }],
+  });
+
+  if (!research.output_text) {
+    throw new Error("Gemini returned no output for review research");
+  }
+
+  const sources = new Map<string, ReviewPainPointSource>();
+  for (const step of research.steps) {
+    if (step.type !== "model_output" || !step.content) continue;
+    for (const block of step.content) {
+      if (block.type !== "text" || !block.annotations) continue;
+      for (const annotation of block.annotations) {
+        if (annotation.type === "url_citation" && annotation.url) {
+          sources.set(annotation.url, { url: annotation.url, title: annotation.title ?? annotation.url });
+        }
+      }
+    }
+  }
+
+  const structurePrompt = `Here is some research on ${lead.businessName}'s customer reviews:
+
+${research.output_text}
+
+Based only on the above, identify 3 to 6 concrete, recurring pain points - do not invent or generalize beyond what's stated. For each one, propose one specific, sellable fix (a website, web app, or AI-driven workflow) that directly addresses that exact complaint. Avoid generic advice: say something like "3 recent reviews mention slow order times during lunch rush; an ordering/queue-display system would let customers place and track orders without waiting at the counter," not "you should have online ordering." Categorize each fix as one of: website, web_app, ai_workflow, other. If the research above didn't find genuine reviews, return an empty list rather than inventing pain points.`;
+
+  const structured = await getClient().interactions.create({
+    model: MODEL,
+    input: structurePrompt,
+    response_format: { type: "text", mime_type: "application/json", schema: REVIEW_PAIN_POINT_SCHEMA },
+  });
+
+  if (!structured.output_text) {
+    throw new Error("Gemini returned no output for review pain-point structuring");
+  }
+  const parsed = JSON.parse(structured.output_text) as { painPoints: ReviewPainPoint[] };
+  if (!Array.isArray(parsed.painPoints)) {
+    throw new Error("Gemini returned malformed review pain points");
+  }
+
+  return { painPoints: parsed.painPoints, sources: Array.from(sources.values()) };
+}
